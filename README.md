@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Astha Dhunagana — Structural Engineer Portfolio
 
-## Getting Started
+Monorepo with a **Next.js + Tailwind** frontend and an **Express + TypeScript** backend.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+aastha_portfolio/
+├── frontend/   # Next.js 16 app (portfolio UI + admin panel at /admin)
+└── backend/    # Express REST API (content management + contact form)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> All website content is **managed from the admin panel**. Nothing is hardcoded —
+> the frontend fetches everything from the backend content API.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Quick start
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# install all dependencies
+npm run install:all
 
-## Learn More
+# run backend (:4000) and frontend (:3000) together
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open http://localhost:3000.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Admin panel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Start the backend and frontend (above).
+2. Open **http://localhost:3000/admin**.
+3. Sign in with the backend `ADMIN_PASSWORD` (default `admin123` — change it in production).
+4. Edit any section (Profile, Navigation, Hero, About, Expertise, Projects, Experience, CTA, Contact, Footer), then click **Save changes**.
 
-## Deploy on Vercel
+Edits are stored in `backend/data/content.json` and served live to the website. The
+panel also includes a **Reset defaults** action to restore the original seed content.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Environment variables
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| File                | Variable             | Purpose                                            |
+| ------------------- | -------------------- | -------------------------------------------------- |
+| `frontend/.env`     | `NEXT_PUBLIC_API_URL`| Backend base URL (default `http://localhost:4000`) |
+| `backend/.env`      | `ADMIN_PASSWORD`     | Password for the `/admin` panel (default `admin123`) |
+| `backend/.env`      | `RESEND_API_KEY`     | Enables email delivery for contact form            |
+
+Copy from the `.env.example` files in each directory.
+
+## Contact form flow
+
+1. `frontend/components/ContactForm.tsx` POSTs to `{API_URL}/api/contact`.
+2. `backend` validates with Zod, stores to `backend/data/messages.json`.
+3. If `RESEND_API_KEY` is set, the message is also emailed to `RESEND_TO_EMAIL`.
+
+## Content API
+
+| Method | Path               | Auth | Description                                  |
+| ------ | ------------------ | ---- | -------------------------------------------- |
+| GET    | `/api/content`     | —    | Fetch all site content (used by the website) |
+| POST   | `/api/auth/login`  | —    | Sign in with `ADMIN_PASSWORD` → `{ token }`  |
+| PUT    | `/api/content`     | Bearer token | Save all site content              |
+| POST   | `/api/content/reset`| Bearer token | Restore default seed content     |
+
+## Scripts (run from root)
+
+| Command          | Description                              |
+| ---------------- | ---------------------------------------- |
+| `npm run dev`    | Start both servers with hot reload       |
+| `npm run build`  | Build backend + frontend                 |
+| `npm run typecheck` | Type-check both packages              |
+| `npm run lint`   | Lint frontend                            |
