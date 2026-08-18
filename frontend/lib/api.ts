@@ -1,6 +1,19 @@
 import type { SiteContent } from "./contentTypes";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+function resolveApiUrl(): string {
+  if (typeof window !== "undefined") {
+    // Client-side: same-origin, routed to the backend by Vercel Services rewrites.
+    return process.env.NEXT_PUBLIC_API_URL ?? "";
+  }
+  // Server-side (SSR): internal backend URL injected by the Vercel Services binding.
+  return (
+    process.env.BACKEND_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "http://localhost:4000"
+  );
+}
+
+export const API_URL = resolveApiUrl();
 
 export async function getContent(): Promise<SiteContent | null> {
   try {

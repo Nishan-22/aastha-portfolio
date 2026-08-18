@@ -40,7 +40,7 @@ original seed content.
 
 | File                | Variable              | Purpose                                            |
 | ------------------- | --------------------- | -------------------------------------------------- |
-| `frontend/.env`     | `NEXT_PUBLIC_API_URL` | Backend base URL (default `http://localhost:4000`) |
+| `frontend/.env`     | `NEXT_PUBLIC_API_URL` | Local dev only — backend base URL (`http://localhost:4000`). Leave unset in production (Vercel Services handles it) |
 | `backend/.env`      | `MONGODB_URI`         | MongoDB Atlas connection string (required)         |
 | `backend/.env`      | `MONGODB_DB`          | Database name (default `aastha_portfolio`)         |
 | `backend/.env`      | `BLOB_READ_WRITE_TOKEN` | Vercel Blob store token (admin uploads)          |
@@ -73,31 +73,38 @@ Copy from the `.env.example` files in each directory.
 | `npm run typecheck` | Type-check both packages              |
 | `npm run lint`   | Lint frontend                            |
 
-## Deploying to Vercel
+## Deploying to Vercel (single project)
 
-Two Vercel projects from this monorepo (Vercel's [monorepo support](https://vercel.com/docs/monorepos) links both):
+This repo uses **Vercel Services** — the frontend and backend deploy together as **one
+project on one domain**, configured in the root `vercel.json`. Import the repo once.
 
-1. **Backend project** — root directory `backend/`. Vercel auto-detects Express
-   (default export in `src/app.ts`) and runs it as a serverless function.
-2. **Frontend project** — root directory `frontend/`. Vercel auto-detects Next.js.
+1. At **vercel.com/new**, import the `aastha-portfolio` repo.
+2. On the Configure Project screen:
+   - **Root directory**: repo root `/`.
+   - **Framework Preset**: select **Services** (required — otherwise Vercel ignores `vercel.json`).
+   - Click **Deploy**.
+3. In project **Settings → Environment Variables**, add:
 
-Set the following env vars in the Vercel dashboard:
+   | Name | Value |
+   | --- | --- |
+   | `MONGODB_URI` | Your real Atlas connection string |
+   | `MONGODB_DB` | `aastha_portfolio` |
+   | `ADMIN_PASSWORD` | Your admin password (change from `admin123`) |
+   | `RESEND_API_KEY` | Optional, for contact-form emails |
+   | `RESEND_TO_EMAIL` | Optional, where contact emails go |
 
-| Project  | Variable                | Value                                              |
-| -------- | ----------------------- | -------------------------------------------------- |
-| backend  | `MONGODB_URI`           | Your real Atlas connection string (with real password) |
-| backend  | `MONGODB_DB`            | `aastha_portfolio`                                 |
-| backend  | `ADMIN_PASSWORD`        | Your admin password                                |
-| backend  | `BLOB_READ_WRITE_TOKEN` | Created automatically when you add a **Blob store** to the project |
-| backend  | `RESEND_API_KEY`        | Optional, for contact-form emails                  |
-| frontend | `NEXT_PUBLIC_API_URL`   | The backend project's URL (e.g. `https://your-api.vercel.app`) |
+   Do **not** set `NEXT_PUBLIC_API_URL` — the Services binding injects the backend URL
+   server-side, and the browser uses same-origin paths.
+4. Add a **Blob store** (Project → Storage → Create Blob) so admin uploads work —
+   Vercel injects `BLOB_READ_WRITE_TOKEN` automatically.
+5. In **MongoDB Atlas → Network Access**, allow `0.0.0.0/0` so Vercel can reach it.
+6. Redeploy after adding env vars. Verify:
+   - `https://<project>.vercel.app` renders the portfolio.
+   - `https://<project>.vercel.app/api/health` returns `{"status":"ok",...}`.
+   - `https://<project>.vercel.app/admin` login + uploads work.
 
 Notes:
 
-- Create a **Blob store** in the backend project first (Project → Storage → Blob) so
-  `BLOB_READ_WRITE_TOKEN` is injected automatically.
-- In MongoDB Atlas, allow network access from anywhere (`0.0.0.0/0`) so Vercel's
-  functions can reach it.
 - Uploaded files are capped at **4 MB** (Vercel's serverless body limit; was 100 MB).
 - To preserve content you already edited locally before the first deploy, run
   `npm run migrate --prefix backend` once MongoDB is reachable — it loads
