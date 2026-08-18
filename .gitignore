@@ -10,6 +10,9 @@ backend/data/
 .env
 .env.local
 
+# vercel
+.vercel
+
 # logs
 *.log
 

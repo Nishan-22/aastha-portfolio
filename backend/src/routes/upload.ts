@@ -2,11 +2,8 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import multer from "multer";
 import path from "node:path";
 import crypto from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { put } from "@vercel/blob";
 import { verifyToken } from "../lib/auth.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads");
 
 const MIME_MAP: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -30,18 +27,9 @@ function requireAuth(req: { headers: Record<string, unknown> }, _res: unknown, n
   next();
 }
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = MIME_MAP[file.mimetype] ?? path.extname(file.originalname);
-    const name = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
-    cb(null, name);
-  },
-});
-
 const upload = multer({
-  storage,
-  limits: { fileSize: 100 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (MIME_MAP[file.mimetype]) {
       cb(null, true);
@@ -53,18 +41,29 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/upload", requireAuth, upload.single("file"), (req, res) => {
+router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
-  const url = `/uploads/${req.file.filename}`;
-  return res.json({ url });
+  try {
+    const ext = MIME_MAP[req.file.mimetype] ?? path.extname(req.file.originalname);
+    const filename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
+    const blob = await put(`uploads/${filename}`, req.file.buffer, {
+      access: "public",
+      contentType: req.file.mimetype,
+      addRandomSuffix: true,
+    });
+    return res.json({ url: blob.url });
+  } catch (err) {
+    console.error("Upload failed:", err);
+    return res.status(500).json({ error: "Upload failed" });
+  }
 });
 
 router.use((err: Error & { status?: number }, _req: Request, res: Response, next: NextFunction) => {
   if (err.status === 401) return res.status(401).json({ error: "Unauthorized" });
   if (err instanceof multer.MulterError) {
-    return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? "File is too large (max 100 MB)" : err.message });
+    return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? "File is too large (max 4 MB)" : err.message });
   }
   if (err) return res.status(400).json({ error: err.message });
   next();

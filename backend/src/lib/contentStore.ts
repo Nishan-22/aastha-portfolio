@@ -1,29 +1,48 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import type { SiteContent } from "./contentTypes.js";
 import { defaultContent } from "./seedContent.js";
+import { getDb } from "./db.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, "..", "..", "data");
-const DATA_FILE = path.join(DATA_DIR, "content.json");
+const COLLECTION = "content";
+const DOC_ID = "site";
+
+interface ContentDoc {
+  _id: string;
+  data: SiteContent;
+}
 
 export async function getContent(): Promise<SiteContent> {
-  await ensureFile();
-  const raw = await fs.readFile(DATA_FILE, "utf8");
-  return JSON.parse(raw) as SiteContent;
+  const doc = await getDb()
+    .then((db) => db.collection<ContentDoc>(COLLECTION).findOne({ _id: DOC_ID }));
+
+  if (!doc) {
+    const content = normalize(defaultContent);
+    await saveContent(content);
+    return content;
+  }
+  return doc.data;
 }
 
 export async function saveContent(content: SiteContent): Promise<SiteContent> {
-  await ensureFile();
   const normalized = normalize(content);
-  await fs.writeFile(DATA_FILE, JSON.stringify(normalized, null, 2), "utf8");
+  await getDb().then((db) =>
+    db.collection<ContentDoc>(COLLECTION).updateOne(
+      { _id: DOC_ID },
+      { $set: { data: normalized } },
+      { upsert: true }
+    )
+  );
   return normalized;
 }
 
 export async function resetContent(): Promise<SiteContent> {
   const normalized = normalize(defaultContent);
-  await fs.writeFile(DATA_FILE, JSON.stringify(normalized, null, 2), "utf8");
+  await getDb().then((db) =>
+    db.collection<ContentDoc>(COLLECTION).updateOne(
+      { _id: DOC_ID },
+      { $set: { data: normalized } },
+      { upsert: true }
+    )
+  );
   return normalized;
 }
 
@@ -50,13 +69,4 @@ function deepMerge<T>(base: T, override: T): T {
     return result as T;
   }
   return override === undefined ? base : override;
-}
-
-async function ensureFile(): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(DATA_FILE);
-  } catch {
-    await resetContent();
-  }
 }
