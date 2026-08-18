@@ -6,11 +6,12 @@ function resolveApiUrl(): string {
     return process.env.NEXT_PUBLIC_API_URL ?? "";
   }
   // Server-side (SSR): internal backend URL injected by the Vercel Services binding.
-  return (
-    process.env.BACKEND_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    "http://localhost:4000"
-  );
+  const internalUrl = process.env.BACKEND_URL;
+  if (internalUrl) return internalUrl;
+  // Fallback: same-origin on the current deployment (Vercel sets VERCEL_URL at runtime).
+  const deploymentUrl = process.env.VERCEL_URL;
+  if (deploymentUrl) return `https://${deploymentUrl}`;
+  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 }
 
 export const API_URL = resolveApiUrl();
