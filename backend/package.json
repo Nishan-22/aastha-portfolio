@@ -4,12 +4,10 @@
   "private": true,
   "type": "module",
   "description": "API backend for the Aastha Sharma portfolio site",
-  "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
     "migrate": "tsx src/scripts/migrate.ts",
+    "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
