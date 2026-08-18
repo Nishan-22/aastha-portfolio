@@ -2,8 +2,16 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import multer from "multer";
 import path from "node:path";
 import crypto from "node:crypto";
-import { put } from "@vercel/blob";
+import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
 import { verifyToken } from "../lib/auth.js";
+
+if (process.env.CLOUDINARY_CLOUD_NAME) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
 const MIME_MAP: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -45,15 +53,22 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
+  const file = req.file;
   try {
-    const ext = MIME_MAP[req.file.mimetype] ?? path.extname(req.file.originalname);
-    const filename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
-    const blob = await put(`uploads/${filename}`, req.file.buffer, {
-      access: "public",
-      contentType: req.file.mimetype,
-      addRandomSuffix: true,
+    const ext = MIME_MAP[file.mimetype] ?? path.extname(file.originalname);
+    const publicId = `aastha-portfolio/${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
+    const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { public_id: publicId, resource_type: "auto" },
+        (err, result) => {
+          if (err) return reject(err);
+          if (!result) return reject(new Error("Upload returned no result"));
+          return resolve(result);
+        }
+      );
+      stream.end(file.buffer);
     });
-    return res.json({ url: blob.url });
+    return res.json({ url: result.secure_url });
   } catch (err) {
     console.error("Upload failed:", err);
     return res.status(500).json({ error: "Upload failed" });

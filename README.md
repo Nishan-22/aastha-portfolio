@@ -1,6 +1,6 @@
 # Astha Dhunagana — Structural Engineer Portfolio
 
-Monorepo with a **Next.js + Tailwind** frontend and an **Express + TypeScript** backend, both deployable to **Vercel**. Content and contact messages are stored in **MongoDB Atlas**; admin file uploads use **Vercel Blob**.
+Monorepo with a **Next.js + Tailwind** frontend and an **Express + TypeScript** backend, both deployable to **Vercel**. Content and contact messages are stored in **MongoDB Atlas**; admin file uploads use **Cloudinary**.
 
 ```
 aastha_portfolio/
@@ -43,7 +43,9 @@ original seed content.
 | `frontend/.env`     | `NEXT_PUBLIC_API_URL` | Local dev only — backend base URL (`http://localhost:4000`). Leave unset in production (Vercel Services handles it) |
 | `backend/.env`      | `MONGODB_URI`         | MongoDB Atlas connection string (required)         |
 | `backend/.env`      | `MONGODB_DB`          | Database name (default `aastha_portfolio`)         |
-| `backend/.env`      | `BLOB_READ_WRITE_TOKEN` | Vercel Blob store token (admin uploads)          |
+| `backend/.env`      | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name (admin uploads)            |
+| `backend/.env`      | `CLOUDINARY_API_KEY`  | Cloudinary API key                                 |
+| `backend/.env`      | `CLOUDINARY_API_SECRET` | Cloudinary API secret                            |
 | `backend/.env`      | `ADMIN_PASSWORD`      | Password for the `/admin` panel (default `admin123`) |
 | `backend/.env`      | `RESEND_API_KEY`      | Enables email delivery for contact form            |
 
@@ -89,23 +91,25 @@ project on one domain**, configured in the root `vercel.json`. Import the repo o
    | --- | --- |
    | `MONGODB_URI` | Your real Atlas connection string |
    | `MONGODB_DB` | `aastha_portfolio` |
+   | `CLOUDINARY_CLOUD_NAME` | Your Cloudinary cloud name |
+   | `CLOUDINARY_API_KEY` | Your Cloudinary API key |
+   | `CLOUDINARY_API_SECRET` | Your Cloudinary API secret |
    | `ADMIN_PASSWORD` | Your admin password (change from `admin123`) |
    | `RESEND_API_KEY` | Optional, for contact-form emails |
    | `RESEND_TO_EMAIL` | Optional, where contact emails go |
 
    Do **not** set `NEXT_PUBLIC_API_URL` — the Services binding injects the backend URL
    server-side, and the browser uses same-origin paths.
-4. Add a **Blob store** (Project → Storage → Create Blob) so admin uploads work —
-   Vercel injects `BLOB_READ_WRITE_TOKEN` automatically.
-5. In **MongoDB Atlas → Network Access**, allow `0.0.0.0/0` so Vercel can reach it.
-6. Redeploy after adding env vars. Verify:
+4. In **MongoDB Atlas → Network Access**, allow `0.0.0.0/0` so Vercel can reach it.
+5. Redeploy after adding env vars. Verify:
    - `https://<project>.vercel.app` renders the portfolio.
    - `https://<project>.vercel.app/api/health` returns `{"status":"ok",...}`.
    - `https://<project>.vercel.app/admin` login + uploads work.
 
 Notes:
 
-- Uploaded files are capped at **4 MB** (Vercel's serverless body limit; was 100 MB).
+- Files uploaded via `/admin` are stored in **Cloudinary**; MongoDB keeps the URL strings.
+- Uploaded files are capped at **4 MB** (Vercel's serverless body limit).
 - To preserve content you already edited locally before the first deploy, run
   `npm run migrate --prefix backend` once MongoDB is reachable — it loads
   `backend/data/content.json` and `backend/data/messages.json` into MongoDB.
