@@ -51,20 +51,33 @@ const router = Router();
 
 const CLOUDINARY_FOLDER = "aastha-portfolio";
 
-router.get("/upload/signature", requireAuth, (_req, res) => {
+function cloudinaryCredentials(): { cloudName: string; apiKey: string; apiSecret: string } | null {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+  if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET) {
+    return { cloudName: CLOUDINARY_CLOUD_NAME, apiKey: CLOUDINARY_API_KEY, apiSecret: CLOUDINARY_API_SECRET };
+  }
+  const url = process.env.CLOUDINARY_URL;
+  const match = url?.match(/^cloudinary:\/\/([^:@]+):([^@]+)@(.+)$/);
+  if (match) {
+    return { apiKey: match[1], apiSecret: match[2], cloudName: match[3] };
+  }
+  return null;
+}
+
+router.get("/upload/signature", requireAuth, (_req, res) => {
+  const creds = cloudinaryCredentials();
+  if (!creds) {
     return res.status(500).json({ error: "Cloudinary is not configured" });
   }
   const timestamp = Math.round(Date.now() / 1000);
   const paramsToSign = `folder=${CLOUDINARY_FOLDER}&timestamp=${timestamp}`;
   const signature = crypto
     .createHash("sha1")
-    .update(`${paramsToSign}${CLOUDINARY_API_SECRET}`)
+    .update(`${paramsToSign}${creds.apiSecret}`)
     .digest("hex");
   return res.json({
-    cloudName: CLOUDINARY_CLOUD_NAME,
-    apiKey: CLOUDINARY_API_KEY,
+    cloudName: creds.cloudName,
+    apiKey: creds.apiKey,
     timestamp,
     signature,
     folder: CLOUDINARY_FOLDER,
