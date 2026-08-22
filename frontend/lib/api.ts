@@ -74,16 +74,32 @@ export async function resetContent(token: string): Promise<SiteContent> {
 }
 
 export async function uploadFile(token: string, file: File): Promise<string> {
+  // Ask the backend for a short-lived signature (no file payload crosses the
+  // serverless function, so Vercel's ~4.5 MB request limit never applies).
+  const sigRes = await fetch(`${API_URL}/api/upload/signature`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const sig = await sigRes.json().catch(() => ({}));
+  if (!sigRes.ok) {
+    throw new Error(sig.error ?? "Failed to start upload");
+  }
+
+  // Upload straight from the browser to Cloudinary (any size).
   const body = new FormData();
   body.append("file", file);
-  const res = await fetch(`${API_URL}/api/upload`, {
+  body.append("api_key", String(sig.apiKey));
+  body.append("timestamp", String(sig.timestamp));
+  body.append("signature", String(sig.signature));
+  body.append("folder", String(sig.folder));
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/auto/upload`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
     body,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error ?? "Upload failed");
+  const message = data?.error?.message;
+  if (!res.ok || !data.secure_url) {
+    throw new Error(typeof message === "string" ? message : "Upload failed");
   }
-  return data.url as string;
+  return data.secure_url as string;
 }

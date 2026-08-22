@@ -49,6 +49,28 @@ const upload = multer({
 
 const router = Router();
 
+const CLOUDINARY_FOLDER = "aastha-portfolio";
+
+router.get("/upload/signature", requireAuth, (_req, res) => {
+  const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+    return res.status(500).json({ error: "Cloudinary is not configured" });
+  }
+  const timestamp = Math.round(Date.now() / 1000);
+  const paramsToSign = `folder=${CLOUDINARY_FOLDER}&timestamp=${timestamp}`;
+  const signature = crypto
+    .createHash("sha1")
+    .update(`${paramsToSign}${CLOUDINARY_API_SECRET}`)
+    .digest("hex");
+  return res.json({
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    apiKey: CLOUDINARY_API_KEY,
+    timestamp,
+    signature,
+    folder: CLOUDINARY_FOLDER,
+  });
+});
+
 router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
@@ -56,7 +78,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
   const file = req.file;
   try {
     const ext = MIME_MAP[file.mimetype] ?? path.extname(file.originalname);
-    const publicId = `aastha-portfolio/${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
+    const publicId = `${CLOUDINARY_FOLDER}/${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         { public_id: publicId, resource_type: "auto" },
@@ -69,9 +91,13 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
       stream.end(file.buffer);
     });
     return res.json({ url: result.secure_url });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Upload failed:", err);
-    return res.status(500).json({ error: "Upload failed" });
+    const detail =
+      typeof err === "object" && err !== null && "message" in err
+        ? String((err as { message: unknown }).message)
+        : undefined;
+    return res.status(500).json({ error: `Upload failed${detail ? `: ${detail}` : ""}` });
   }
 });
 
