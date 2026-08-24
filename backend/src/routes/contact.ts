@@ -2,6 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { saveMessage, getMessages } from "../lib/storage.js";
 import { sendEmail } from "../lib/mailer.js";
+import { requireAuth } from "../lib/requireAuth.js";
+import { contactRateLimit, readRateLimit } from "../lib/rateLimits.js";
 
 const contactSchema = z.object({
   name: z
@@ -20,7 +22,7 @@ const contactSchema = z.object({
 
 const router = Router();
 
-router.post("/contact", async (req, res) => {
+router.post("/contact", contactRateLimit, async (req, res) => {
   const parsed = contactSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
@@ -55,7 +57,7 @@ router.post("/contact", async (req, res) => {
   }
 });
 
-router.get("/contact", async (_req, res) => {
+router.get("/contact", requireAuth, readRateLimit, async (_req, res) => {
   try {
     const messages = await getMessages();
     return res.json({ messages });

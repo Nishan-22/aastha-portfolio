@@ -3,7 +3,8 @@ import multer from "multer";
 import path from "node:path";
 import crypto from "node:crypto";
 import { v2 as cloudinary, type UploadApiResponse } from "cloudinary";
-import { verifyToken } from "../lib/auth.js";
+import { requireAuth } from "../lib/requireAuth.js";
+import { readRateLimit } from "../lib/rateLimits.js";
 
 if (process.env.CLOUDINARY_CLOUD_NAME) {
   cloudinary.config({
@@ -18,22 +19,10 @@ const MIME_MAP: Record<string, string> = {
   "image/png": ".png",
   "image/webp": ".webp",
   "image/gif": ".gif",
-  "image/svg+xml": ".svg",
   "video/mp4": ".mp4",
   "video/webm": ".webm",
   "application/pdf": ".pdf",
 };
-
-function requireAuth(req: { headers: Record<string, unknown> }, _res: unknown, next: (err?: unknown) => void) {
-  const header = (req.headers.authorization as string | undefined) ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!token || !verifyToken(token)) {
-    const err = new Error("Unauthorized") as Error & { status?: number };
-    err.status = 401;
-    return next(err);
-  }
-  next();
-}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -50,6 +39,7 @@ const upload = multer({
 const router = Router();
 
 const CLOUDINARY_FOLDER = "aastha-portfolio";
+const ALLOWED_FORMATS = ["jpg", "png", "webp", "gif", "mp4", "webm", "pdf"];
 
 function cloudinaryCredentials(): { cloudName: string; apiKey: string; apiSecret: string } | null {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
@@ -64,13 +54,14 @@ function cloudinaryCredentials(): { cloudName: string; apiKey: string; apiSecret
   return null;
 }
 
-router.get("/upload/signature", requireAuth, (_req, res) => {
+router.get("/upload/signature", requireAuth, readRateLimit, (_req, res) => {
   const creds = cloudinaryCredentials();
   if (!creds) {
     return res.status(500).json({ error: "Cloudinary is not configured" });
   }
   const timestamp = Math.round(Date.now() / 1000);
-  const paramsToSign = `folder=${CLOUDINARY_FOLDER}&timestamp=${timestamp}`;
+  // Params must be sorted alphabetically for Cloudinary signature verification.
+  const paramsToSign = `allowed_formats=${ALLOWED_FORMATS.join(",")}&folder=${CLOUDINARY_FOLDER}&timestamp=${timestamp}`;
   const signature = crypto
     .createHash("sha1")
     .update(`${paramsToSign}${creds.apiSecret}`)
@@ -81,10 +72,11 @@ router.get("/upload/signature", requireAuth, (_req, res) => {
     timestamp,
     signature,
     folder: CLOUDINARY_FOLDER,
+    allowedFormats: ALLOWED_FORMATS,
   });
 });
 
-router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
+router.post("/upload", requireAuth, readRateLimit, upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
@@ -106,11 +98,7 @@ router.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     return res.json({ url: result.secure_url });
   } catch (err: unknown) {
     console.error("Upload failed:", err);
-    const detail =
-      typeof err === "object" && err !== null && "message" in err
-        ? String((err as { message: unknown }).message)
-        : undefined;
-    return res.status(500).json({ error: `Upload failed${detail ? `: ${detail}` : ""}` });
+    return res.status(500).json({ error: "Upload failed" });
   }
 });
 

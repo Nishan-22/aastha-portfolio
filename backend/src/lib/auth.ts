@@ -1,11 +1,19 @@
 import crypto from "node:crypto";
 
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "admin123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_PASSWORD) {
+  throw new Error(
+    "ADMIN_PASSWORD environment variable is required. Refusing to start without it."
+  );
+}
+
+export const adminPassword = ADMIN_PASSWORD;
 
 const TOKEN_TTL_SECONDS = 12 * 60 * 60; // 12 hours
 
 function secret(): string {
-  return ADMIN_PASSWORD;
+  return adminPassword;
 }
 
 export function createToken(): string {
@@ -27,7 +35,12 @@ export function verifyToken(token: string): boolean {
     .createHmac("sha256", secret())
     .update(payload)
     .digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+  const sigBuf = Buffer.from(sig);
+  const expectedBuf = Buffer.from(expected);
+  if (
+    sigBuf.length !== expectedBuf.length ||
+    !crypto.timingSafeEqual(sigBuf, expectedBuf)
+  ) {
     return false;
   }
   try {

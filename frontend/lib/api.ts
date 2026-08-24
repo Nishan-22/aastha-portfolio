@@ -91,6 +91,9 @@ export async function uploadFile(token: string, file: File): Promise<string> {
   body.append("timestamp", String(sig.timestamp));
   body.append("signature", String(sig.signature));
   body.append("folder", String(sig.folder));
+  if (Array.isArray(sig.allowedFormats) && sig.allowedFormats.length > 0) {
+    body.append("allowed_formats", sig.allowedFormats.join(","));
+  }
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/auto/upload`, {
     method: "POST",

@@ -226,8 +226,8 @@ export function StatFields({
 }
 
 const ACCEPT: Record<string, string> = {
-  image: "image/*",
-  video: "video/*",
+  image: "image/jpeg,image/png,image/webp,image/gif",
+  video: "video/mp4,video/webm",
   pdf: "application/pdf",
 };
 

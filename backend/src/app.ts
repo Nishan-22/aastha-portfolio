@@ -1,13 +1,50 @@
 import express, { type Request, type Response } from "express";
+import type { CorsRequest } from "cors";
 import cors from "cors";
+import helmet from "helmet";
 import contactRouter from "./routes/contact.js";
 import contentRouter from "./routes/content.js";
 import uploadRouter from "./routes/upload.js";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.disable("x-powered-by");
+// Behind Vercel's proxy so req.ip reflects the real visitor for rate limiting.
+app.set("trust proxy", true);
+
+// Explicitly allowed extra origins (comma-separated). Optional — same-origin
+// traffic via Vercel rewrites and local dev are always allowed.
+const extraOrigins = (process.env.CORS_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors((req: CorsRequest, callback) => {
+    const origin = req.headers.origin;
+    const allow = (() => {
+      if (!origin) return true; // SSR / server-to-server
+      const host = req.headers.host;
+      if (host) {
+        try {
+          if (new URL(origin).host === host) return true; // same-origin rewrite
+        } catch {
+          return false;
+        }
+      }
+      if (
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:")
+      ) {
+        return true; // local dev
+      }
+      return extraOrigins.includes(origin);
+    })();
+    callback(null, { origin: allow });
+  })
+);
+app.use(helmet());
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "astha-portfolio-backend" });

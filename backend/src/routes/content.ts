@@ -1,7 +1,10 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router } from "express";
+import crypto from "node:crypto";
 import { z } from "zod";
 import { getContent, saveContent, resetContent } from "../lib/contentStore.js";
-import { ADMIN_PASSWORD, createToken, verifyToken } from "../lib/auth.js";
+import { adminPassword, createToken } from "../lib/auth.js";
+import { requireAuth } from "../lib/requireAuth.js";
+import { loginRateLimit, readRateLimit } from "../lib/rateLimits.js";
 
 const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
@@ -9,21 +12,16 @@ const loginSchema = z.object({
 
 const router = Router();
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const header = req.headers.authorization ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!token || !verifyToken(token)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  next();
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
-router.post("/auth/login", (req, res) => {
+router.post("/auth/login", loginRateLimit, (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Password is required" });
-  }
-  if (parsed.data.password !== ADMIN_PASSWORD) {
+  if (!parsed.success || !safeEqual(parsed.data.password, adminPassword)) {
     return res.status(401).json({ error: "Invalid password" });
   }
   return res.json({ token: createToken() });
