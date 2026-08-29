@@ -19,7 +19,7 @@ export async function getContent(): Promise<SiteContent> {
     await saveContent(content);
     return content;
   }
-  return doc.data;
+  return normalize(doc.data);
 }
 
 export async function saveContent(content: SiteContent): Promise<SiteContent> {
@@ -48,7 +48,27 @@ export async function resetContent(): Promise<SiteContent> {
 
 function normalize(content: SiteContent): SiteContent {
   const merged = deepMerge(defaultContent, content);
-  return JSON.parse(JSON.stringify(merged)) as SiteContent;
+  const result = JSON.parse(JSON.stringify(merged)) as SiteContent;
+  
+  // Ensure all URLs have proper protocol prefix
+  if (result.contact?.socials) {
+    result.contact.socials = result.contact.socials.map(s => ({
+      ...s,
+      href: ensureProtocol(s.href)
+    }));
+  }
+  
+  return result;
+}
+
+function ensureProtocol(url: string): string {
+  if (!url) return url;
+  // If URL already has protocol, return as-is
+  if (url.match(/^https?:\/\//i)) return url;
+  // If URL starts with //, add https:
+  if (url.startsWith('//')) return `https:${url}`;
+  // Otherwise, add https://
+  return `https://${url}`;
 }
 
 function deepMerge<T>(base: T, override: T): T {
