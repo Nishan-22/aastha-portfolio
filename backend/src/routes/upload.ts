@@ -86,7 +86,7 @@ router.post("/upload", requireAuth, readRateLimit, upload.single("file"), async 
     const publicId = `${CLOUDINARY_FOLDER}/${Date.now()}-${crypto.randomBytes(8).toString("hex")}${ext}`;
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { public_id: publicId, resource_type: "auto" },
+        { public_id: publicId, resource_type: "auto", type: "upload", access_mode: "public" },
         (err, result) => {
           if (err) return reject(err);
           if (!result) return reject(new Error("Upload returned no result"));
