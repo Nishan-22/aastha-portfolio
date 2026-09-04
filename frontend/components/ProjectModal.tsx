@@ -156,13 +156,13 @@ export default function ProjectModal({
                 )}
                 {hasPdf && (
                   <a
-                    href={pdfSrc}
-                    target="_blank"
+                    href={project.pdf}
+                    download
                     rel="noopener noreferrer"
                     className="btn-secondary w-full justify-center"
                   >
                     View PDF
-                    <span aria-hidden>↗</span>
+                    <span aria-hidden>↓</span>
                   </a>
                 )}
               </div>
