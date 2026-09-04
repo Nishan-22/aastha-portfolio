@@ -9,8 +9,8 @@ import uploadRouter from "./routes/upload.js";
 const app = express();
 
 app.disable("x-powered-by");
-// Behind Vercel's proxy so req.ip reflects the real visitor for rate limiting.
-app.set("trust proxy", true);
+// One trusted proxy hop (Vercel edge -> function) so req.ip is the real visitor.
+app.set("trust proxy", 1);
 
 // Explicitly allowed extra origins (comma-separated). Optional — same-origin
 // traffic via Vercel rewrites and local dev are always allowed.

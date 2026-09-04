@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
-import { fetchAdminContent, login, resetContent as apiResetContent, saveContent } from "@/lib/api";
+import { changePassword, fetchAdminContent, login, resetContent as apiResetContent, saveContent } from "@/lib/api";
 import type { SiteContent } from "@/lib/contentTypes";
 import {
   AboutEditor,
@@ -15,7 +15,7 @@ import {
   ProjectsEditor,
   ServicesEditor,
 } from "./editors";
-import { Field, Text } from "./ui";
+import { Field, Password } from "./ui";
 
 const TOKEN_KEY = "portfolio_admin_token";
 
@@ -70,6 +70,13 @@ export default function AdminPage() {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saveError, setSaveError] = useState("");
 
+  const [pwPanelOpen, setPwPanelOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
   useEffect(() => {
     if (!token) return;
     fetchAdminContent()
@@ -95,6 +102,32 @@ export default function AdminPage() {
   const handleLogout = () => {
     setStoredToken(null);
     setContent(null);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMessage(null);
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ ok: false, text: "New passwords do not match" });
+      return;
+    }
+    if (!token) return;
+    setChangingPassword(true);
+    try {
+      const newToken = await changePassword(token, currentPassword, newPassword);
+      setStoredToken(newToken);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordMessage({ ok: true, text: "Password updated. Use it on your next sign-in." });
+    } catch (err) {
+      setPasswordMessage({
+        ok: false,
+        text: err instanceof Error ? err.message : "Failed to change password",
+      });
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   const update = useCallback(<K extends keyof SiteContent>(key: K, value: SiteContent[K]) => {
@@ -147,10 +180,11 @@ export default function AdminPage() {
             </p>
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
               <Field label="Password">
-                <Text
+                <Password
                   value={password}
                   onChange={setPassword}
                   placeholder="Admin password"
+                  autoComplete="current-password"
                 />
               </Field>
               {loginError && <p className="text-sm text-red-600">{loginError}</p>}
@@ -215,6 +249,16 @@ export default function AdminPage() {
             </button>
             <button
               type="button"
+              onClick={() => {
+                setPwPanelOpen((open) => !open);
+                setPasswordMessage(null);
+              }}
+              className="rounded-lg border border-line px-4 py-2 text-sm text-muted transition-colors hover:border-ink"
+            >
+              Change password
+            </button>
+            <button
+              type="button"
               onClick={handleLogout}
               className="rounded-lg border border-line px-4 py-2 text-sm text-muted transition-colors hover:border-ink"
             >
@@ -249,6 +293,60 @@ export default function AdminPage() {
       </header>
 
       <div className="mx-auto w-full max-w-[1200px] px-5 py-8 sm:px-8">
+        {pwPanelOpen && (
+          <form
+            onSubmit={handleChangePassword}
+            className="mb-6 rounded-xl border border-line bg-white p-6 shadow-[0_20px_60px_-30px_rgba(17,17,17,0.15)]"
+          >
+            <h2 className="text-base font-bold tracking-tight text-ink">Change admin password</h2>
+            <p className="mt-1 text-xs text-muted">
+              Changing the password signs you out everywhere else on your next sign-in.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <Field label="Current password">
+                <Password
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
+                  placeholder="Current password"
+                  autoComplete="current-password"
+                />
+              </Field>
+              <Field label="New password" hint="Min 8 characters">
+                <Password
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  placeholder="New password"
+                  autoComplete="new-password"
+                />
+              </Field>
+              <Field label="Confirm new password">
+                <Password
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  placeholder="Repeat new password"
+                  autoComplete="new-password"
+                />
+              </Field>
+            </div>
+            {passwordMessage && (
+              <p className={`mt-3 text-sm ${passwordMessage.ok ? "text-accent" : "text-red-600"}`}>
+                {passwordMessage.text}
+              </p>
+            )}
+            <div className="mt-4 flex gap-2">
+              <button type="submit" disabled={changingPassword} className="btn-primary px-5 py-2 disabled:opacity-60">
+                {changingPassword ? "Updating…" : "Update password"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPwPanelOpen(false)}
+                className="rounded-lg border border-line px-4 py-2 text-sm text-muted transition-colors hover:border-ink"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
         {(savedAt || saveError) && (
           <div
             className={`mb-6 rounded-xl border px-4 py-3 text-sm ${

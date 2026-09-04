@@ -39,6 +39,26 @@ export async function login(password: string): Promise<string> {
   return data.token as string;
 }
 
+export async function changePassword(
+  token: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<string> {
+  const res = await fetch(`${API_URL}/api/auth/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error ?? "Failed to change password");
+  }
+  return data.token as string;
+}
+
 export async function fetchAdminContent(): Promise<SiteContent> {
   const res = await fetch(`${API_URL}/api/content`, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to load content");

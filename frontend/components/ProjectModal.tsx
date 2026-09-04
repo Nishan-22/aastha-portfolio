@@ -16,6 +16,8 @@ export default function ProjectModal({
   const hasVideo = Boolean(project.video);
   const hasPdf = Boolean(project.pdf);
 
+  const pdfSrc = hasPdf ? `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(project.pdf)}` : "";
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -112,6 +114,16 @@ export default function ProjectModal({
                 />
               </div>
             )}
+
+            {hasPdf && !hasVideo && (
+              <div className="mt-4 overflow-hidden rounded-lg border border-line">
+                <iframe
+                  src={pdfSrc}
+                  title={`${project.title} PDF`}
+                  className="aspect-[4/3] w-full"
+                />
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-4">
@@ -144,13 +156,13 @@ export default function ProjectModal({
                 )}
                 {hasPdf && (
                   <a
-                    href={project.pdf}
+                    href={pdfSrc}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn-secondary w-full justify-center"
                   >
                     View PDF
-                    <span aria-hidden>↓</span>
+                    <span aria-hidden>↗</span>
                   </a>
                 )}
               </div>
