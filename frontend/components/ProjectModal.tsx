@@ -157,7 +157,7 @@ export default function ProjectModal({
                 {hasPdf && (
                   <a
                     href={project.pdf}
-                    download
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="btn-secondary w-full justify-center"
                   >
